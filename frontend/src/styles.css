@@ -1,0 +1,45 @@
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  margin: 0;
+  background: #f5f6fa;
+  color: #1c1e21;
+}
+
+.container {
+  max-width: 420px;
+  margin: 64px auto;
+  padding: 32px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+input {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #b91c1c;
+  margin-bottom: 12px;
+}
