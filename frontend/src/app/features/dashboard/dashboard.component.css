@@ -252,4 +252,43 @@ main { padding: 26px 32px 60px; max-width: 1280px; }
     background: var(--cobalt); color: #fff; align-items: center; justify-content: center;
     box-shadow: 0 8px 20px rgba(0,82,255,0.35); font-size: 26px; z-index: 21; border: none; cursor: pointer;
   }
+
+  /* ================================
+   LOGO
+  ================================ */
+
+  .brand-logo {
+      width: 85px;
+      height: 85px;
+
+      border-radius: 50%;
+
+      background: white;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      margin: 25px 0 15px;
+
+      color: #2f3337;
+      font-size: 40px;
+
+      /* Necesario para contener la imagen */
+      overflow: hidden;
+  }
+
+
+  /* Imagen del logo */
+
+  .brand-logo img {
+      width: 180px;
+      height: auto;
+
+      max-width: none;
+
+      display: block;
+      flex-shrink: 0;
+  }
+
 }

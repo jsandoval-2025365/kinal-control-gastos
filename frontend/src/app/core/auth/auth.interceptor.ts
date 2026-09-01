@@ -9,7 +9,8 @@ import { SessionTimeoutService } from "./session-timeout.service";
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 // Endpoints de mantenimiento de sesión: nunca deben contar como "actividad
-// del usuario" ni disparar notifyActivity() — evitaría un bucle.
+// del usuario" ni disparar notifyActivity() — evitaría un bucle
+// (renovar -> contar como actividad -> intentar renovar de nuevo...).
 const SESSION_MAINTENANCE_PATHS = ["/auth/refresh", "/auth/session-expire", "/csrf-token"];
 
 /**

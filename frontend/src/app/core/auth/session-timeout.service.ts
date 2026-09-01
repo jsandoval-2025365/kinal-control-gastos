@@ -1,7 +1,7 @@
 import { Injectable, signal } from "@angular/core";
 import { Router } from "@angular/router";
 import { AuthService } from "./auth.service";
-import { NotificationService } from "../../shared/notifications/notification.service";
+import { NotificationService } from "../../shared/coming-soon/notifications/notification.service";
 
 /**
  * Debe coincidir con `SESSION_REFRESH_GRACE_SECONDS` del backend
@@ -16,10 +16,15 @@ const GRACE_MS = 60_000;
  *     cuenta regresiva y un botón "Continuar sesión".
  *  2. Durante ese minuto de gracia, CUALQUIER petición HTTP del usuario
  *     (detectada por `authInterceptor` vía `notifyActivity()`) renueva la
- *     sesión automáticamente.
+ *     sesión automáticamente — no hace falta que el usuario presione nada.
  *  3. Si el minuto pasa sin actividad, fuerza el cierre de sesión: llama
  *     al backend para revocar la sesión y limpiar la cookie, y redirige a
  *     `/login`.
+ *
+ * No conoce nada de componentes de UI concretos — solo habla con
+ * `NotificationService` (genérico) y `AuthService`. Esto es justo el
+ * patrón de "conexión sin acoplamiento" que evita que un componente
+ * dependa directamente de otro.
  */
 @Injectable({ providedIn: "root" })
 export class SessionTimeoutService {
@@ -94,7 +99,7 @@ export class SessionTimeoutService {
       0,
       Math.ceil(((this.graceDeadline ?? 0) - Date.now()) / 1000)
     );
-    return `Tu sesión ha expirado. Tienes ${secondsLeft}s para continuar antes de que se cierre automáticamente.`;
+    return `Su sesión ha expirado. Tiene ${secondsLeft}s para continuar antes de que se cierre automáticamente.`;
   }
 
   private extendNow(): void {
@@ -110,7 +115,7 @@ export class SessionTimeoutService {
     this.auth.forceExpireSession().subscribe({
       complete: () => {
         this.router.navigate(["/login"]);
-        this.notifications.info("Tu sesión se cerró por inactividad. Vuelve a iniciar sesión.");
+        this.notifications.info("Su sesión se cerró por inactividad. Porfavor vuelva a iniciar sesión.");
       },
     });
   }

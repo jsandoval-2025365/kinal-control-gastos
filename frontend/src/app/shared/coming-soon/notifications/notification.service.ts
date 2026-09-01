@@ -15,7 +15,9 @@ import { AppNotification } from "./notification.model";
  * componentes: nadie llama directamente a otro componente ni le pasa
  * `@Input()`/`@Output()` a través de varios niveles — todos hablan con
  * este servicio, que es un singleton (`providedIn: 'root'`) inyectado por
- * Angular.
+ * Angular. Si mañana agregas otra feature que necesite mostrar mensajes
+ * (ej. "nota guardada", "error al eliminar"), reutiliza este mismo
+ * servicio en vez de crear un mecanismo nuevo.
  */
 @Injectable({ providedIn: "root" })
 export class NotificationService {

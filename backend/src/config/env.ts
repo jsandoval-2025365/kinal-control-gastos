@@ -11,6 +11,9 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32, "JWT_SECRET debe tener al menos 32 caracteres"),
   JWT_EXPIRES_IN: z.string().default("15m"),
   SESSION_TTL_HOURS: z.coerce.number().int().positive().default(24),
+  // Margen de gracia (en segundos) tras la expiración del JWT durante el
+  // cual el frontend puede pedir uno nuevo sin forzar un login completo.
+  SESSION_REFRESH_GRACE_SECONDS: z.coerce.number().int().positive().default(60),
   CSRF_SECRET: z.string().min(32, "CSRF_SECRET debe tener al menos 32 caracteres"),
   CORS_ORIGIN: z.string().min(1),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),

@@ -37,6 +37,8 @@ export function createApp() {
   // aprovechar vía CSRF de la misma forma; se protegen igualmente por
   // rate limiting). Se aplica a partir de aquí para el resto de rutas.
   app.use("/api/auth/logout", doubleCsrfProtection);
+  app.use("/api/auth/refresh", doubleCsrfProtection);
+  app.use("/api/auth/session-expire", doubleCsrfProtection);
   app.use("/api/admin", doubleCsrfProtection);
   app.use("/api/notes", doubleCsrfProtection);
 

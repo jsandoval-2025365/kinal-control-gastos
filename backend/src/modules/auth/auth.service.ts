@@ -1,7 +1,7 @@
 import { Request } from "express";
 import { prisma } from "../../config/prisma";
 import { hashPassword, verifyPassword, getDummyHash } from "../../utils/password";
-import { signAccessToken } from "../../utils/jwt";
+import { signAccessToken, decodeIgnoringExpiration } from "../../utils/jwt";
 import { Errors } from "../../utils/AppError";
 import { env } from "../../config/env";
 import { LoginInput, RegisterInput } from "./auth.validators";
@@ -75,7 +75,8 @@ export class AuthService {
     const token = signAccessToken({ sub: user.id, sid: session.id, role: user.role });
 
     return {
-      token,
+      token: token.token,
+      tokenExpiresAt: token.expiresAt,
       session,
       user: { id: user.id, email: user.email, role: user.role },
     };
@@ -87,6 +88,59 @@ export class AuthService {
       where: { id: sessionId },
       data: { revokedAt: new Date() },
     });
+  }
+
+  /**
+   * Reemite un JWT nuevo para una sesión que sigue activa en PostgreSQL,
+   * aunque el JWT anterior ya haya expirado. No crea una sesión nueva:
+   * reutiliza la misma fila de `Session`, así que su límite absoluto de
+   * `SESSION_TTL_HOURS` no se reinicia (evita que renovaciones sucesivas
+   * mantengan una sesión viva para siempre).
+   */
+  async refreshSession(sessionId: string) {
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      include: { user: true },
+    });
+
+    const now = new Date();
+    if (!session || session.revokedAt !== null || session.expiresAt < now) {
+      throw Errors.unauthorized("La sesión ya no es válida, inicia sesión de nuevo");
+    }
+
+    const token = signAccessToken({
+      sub: session.userId,
+      sid: session.id,
+      role: session.user.role,
+    });
+
+    return {
+      token: token.token,
+      tokenExpiresAt: token.expiresAt,
+      user: { id: session.user.id, email: session.user.email, role: session.user.role },
+    };
+  }
+
+  /**
+   * Revocación "best-effort" para cuando el JWT ya expiró más allá del
+   * margen de gracia. Deliberadamente no lanza si el token es ilegible o
+   * la sesión ya no existe: su único trabajo es asegurarse de que, si hay
+   * algo que revocar, quede revocado — el llamador (controller) limpia la
+   * cookie de todas formas, sin importar el resultado de esta función.
+   */
+  async bestEffortRevoke(token: string | undefined) {
+    if (!token) return;
+    const payload = decodeIgnoringExpiration(token);
+    if (!payload?.sid) return;
+    await prisma.session
+      .updateMany({
+        where: { id: payload.sid, revokedAt: null },
+        data: { revokedAt: new Date() },
+      })
+      .catch(() => {
+        // Silenciado a propósito: esta función nunca debe bloquear la
+        // limpieza de la cookie en el controller.
+      });
   }
 
   /**
