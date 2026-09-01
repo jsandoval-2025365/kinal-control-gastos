@@ -4,18 +4,26 @@ import { provideHttpClient, withInterceptors } from "@angular/common/http";
 import { routes } from "./app.routes";
 import { authInterceptor } from "./core/auth/auth.interceptor";
 import { AuthService } from "./core/auth/auth.service";
+import { SessionTimeoutService } from "./core/auth/session-timeout.service";
 import { firstValueFrom, of } from "rxjs";
-import { catchError } from "rxjs/operators";
+import { catchError, tap } from "rxjs/operators";
 
 /**
  * Resuelve el estado de autenticación UNA vez al arrancar la app, antes de
- * que se evalúen los guards de la primera navegación. Así evitamos un
- * parpadeo entre "no autenticado" y "autenticado" en la carga inicial.
- * APP_INITIALIZER requiere una Promise, por eso se convierte con firstValueFrom.
+ * que se evalúen los guards de la primera navegación. Si ya existe una
+ * sesión válida, además programa el aviso de expiración con
+ * `SessionTimeoutService`, para que el conteo de expiración funcione
+ * incluso si el usuario simplemente recarga la página (F5) sin volver a
+ * pasar por el login.
  */
-function initAuth(auth: AuthService) {
+function initAuth(auth: AuthService, sessionTimeout: SessionTimeoutService) {
   return () =>
-    firstValueFrom(auth.fetchCurrentUser().pipe(catchError(() => of(null))));
+    firstValueFrom(
+      auth.fetchCurrentUser().pipe(
+        tap(() => sessionTimeout.scheduleFromExpiresAt(auth.expiresAt())),
+        catchError(() => of(null))
+      )
+    );
 }
 
 export const appConfig: ApplicationConfig = {
@@ -25,7 +33,7 @@ export const appConfig: ApplicationConfig = {
     {
       provide: APP_INITIALIZER,
       useFactory: initAuth,
-      deps: [AuthService],
+      deps: [AuthService, SessionTimeoutService],
       multi: true,
     },
   ],

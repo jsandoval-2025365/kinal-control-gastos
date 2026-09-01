@@ -13,7 +13,7 @@ export const adminGuard: CanActivateFn = () => {
   const router = inject(Router);
 
   const decide = () =>
-    auth.isAuthenticated() && auth.isAdmin() ? true : router.createUrlTree(["/profile"]);
+    auth.isAuthenticated() && auth.isAdmin() ? true : router.createUrlTree(["/dashboard"]);
 
   if (auth.initialized()) {
     return decide();

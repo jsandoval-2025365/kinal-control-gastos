@@ -1,0 +1,28 @@
+<div class="notification-stack">
+  @for (n of notifications.notifications(); track n.id) {
+    <div class="notification" [class]="'notification--' + n.type">
+      <p class="notification__message">{{ n.message }}</p>
+      <div class="notification__actions">
+        @if (n.actionLabel) {
+          <button
+            type="button"
+            class="notification__action"
+            (click)="n.onAction && n.onAction()"
+          >
+            {{ n.actionLabel }}
+          </button>
+        }
+        @if (n.dismissible) {
+          <button
+            type="button"
+            class="notification__close"
+            (click)="notifications.dismiss(n.id)"
+            aria-label="Cerrar"
+          >
+            ✕
+          </button>
+        }
+      </div>
+    </div>
+  }
+</div>

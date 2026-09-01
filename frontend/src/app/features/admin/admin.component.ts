@@ -10,7 +10,7 @@ import { Role, User } from "../../core/models/user.model";
   template: `
     <div class="container" style="max-width: 640px;">
       <h2>Panel de administración</h2>
-      <p><a routerLink="/profile">Volver a mi perfil</a></p>
+      <p><a routerLink="/dashboard">Volver al dashboard</a></p>
 
       @if (error()) {
         <p class="error">{{ error() }}</p>

@@ -4,7 +4,7 @@ import { adminGuard } from "./core/auth/admin.guard";
 import { guestGuard } from "./core/auth/guest.guard";
 
 export const routes: Routes = [
-  { path: "", redirectTo: "profile", pathMatch: "full" },
+  { path: "", redirectTo: "dashboard", pathMatch: "full" },
   {
     path: "login",
     canActivate: [guestGuard],
@@ -18,10 +18,10 @@ export const routes: Routes = [
       import("./features/register/register.component").then((m) => m.RegisterComponent),
   },
   {
-    path: "profile",
+    path: "dashboard",
     canActivate: [authGuard],
     loadComponent: () =>
-      import("./features/profile/profile.component").then((m) => m.ProfileComponent),
+      import("./features/dashboard/dashboard.component").then((m) => m.DashboardComponent),
   },
   {
     path: "admin",
@@ -29,5 +29,34 @@ export const routes: Routes = [
     loadComponent: () =>
       import("./features/admin/admin.component").then((m) => m.AdminComponent),
   },
-  { path: "**", redirectTo: "profile" },
+  // Secciones todavía no implementadas: muestran una vista genérica de "próximamente".
+  {
+    path: "income",
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import("./shared/coming-soon/coming-soon.component").then((m) => m.ComingSoonComponent),
+    data: { title: "Ingresos" },
+  },
+  {
+    path: "expenses",
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import("./shared/coming-soon/coming-soon.component").then((m) => m.ComingSoonComponent),
+    data: { title: "Gastos" },
+  },
+  {
+    path: "budget",
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import("./shared/coming-soon/coming-soon.component").then((m) => m.ComingSoonComponent),
+    data: { title: "Presupuesto" },
+  },
+  {
+    path: "settings",
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import("./shared/coming-soon/coming-soon.component").then((m) => m.ComingSoonComponent),
+    data: { title: "Configuración" },
+  },
+  { path: "**", redirectTo: "dashboard" },
 ];
