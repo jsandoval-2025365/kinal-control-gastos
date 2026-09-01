@@ -34,7 +34,7 @@ export const routes: Routes = [
     path: "income",
     canActivate: [authGuard],
     loadComponent: () =>
-      import("./shared/coming-soon/coming-soon.component").then((m) => m.ComingSoonComponent),
+      import("./features/ingresos/ingresos.component").then((m) => m.LoginComponent),
     data: { title: "Ingresos" },
   },
   {
