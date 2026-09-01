@@ -1,0 +1,233 @@
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">
+        🦝<!-- <img src="../../../assets/images/logo-raccoonit.png" alt="Logo Racconit"> -->
+      </div>
+      <span>Raccoonit</span>
+    </div>
+
+    <nav>
+      <a class="nav-item active" (click)="goTo('/dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a class="nav-item" (click)="goTo('/income')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        <span>Ingresos</span>
+      </a>
+      <a class="nav-item" (click)="goTo('/expenses')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+        <span>Gastos</span>
+      </a>
+      <a class="nav-item" (click)="goTo('/budget')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19h16M7 19V9m5 10V5m5 14v-7"/></svg>
+        <span>Presupuesto</span>
+      </a>
+      <a class="nav-item" (click)="goTo('/settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 0 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 0 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z"/></svg>
+        <span>Configuración</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <!-- ÍCONO DE USUARIO: al hacer click muestra el menú desplegable -->
+      <div class="user-card-wrapper">
+        <div class="user-card" (click)="toggleUserMenu($event)">
+          <div class="avatar">{{ initials }}</div>
+          <div class="user-meta">
+            <div class="name">{{ auth.currentUser()?.email }}</div>
+            <div class="role">{{ auth.currentUser()?.role }}</div>
+          </div>
+        </div>
+
+        @if (userMenuOpen()) {
+          <div class="user-dropdown" (click)="$event.stopPropagation()">
+            <button type="button" class="user-dropdown__item" (click)="goTo('/settings')">
+              Ver configuración
+            </button>
+            <button type="button" class="user-dropdown__item" (click)="goTo('/settings')">
+              Mi cuenta
+            </button>
+          </div>
+        }
+      </div>
+
+      <a class="nav-item" (click)="onLogout()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <span>Cerrar sesión</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+    <div class="topbar">
+      <div>
+        <h1>Dashboard</h1>
+        <div class="sub">Hola {{ auth.currentUser()?.email }} — así está tu mes de agosto</div>
+      </div>
+      <div class="topbar-actions">
+        <div class="icon-btn" (click)="goTo('/settings')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        </div>
+        <button class="btn ghost" (click)="goTo('/expenses')">+ Agregar gasto</button>
+        <button class="btn" (click)="goTo('/income')">+ Agregar ingreso</button>
+      </div>
+    </div>
+
+    <!-- KPI ROW -->
+    <div class="kpi-row">
+      <div class="card kpi income">
+        <div class="kpi-label">Ingresos del mes</div>
+        <div class="kpi-value">Q 18,450</div>
+        <div class="kpi-delta up">▲ 6.2% vs. julio</div>
+      </div>
+      <div class="card kpi">
+        <div class="kpi-label">Gastos del mes</div>
+        <div class="kpi-value">Q 12,180</div>
+        <div class="kpi-delta down">▲ 3.4% vs. julio</div>
+      </div>
+      <div class="card ring-card">
+        <div class="ring-wrap">
+          <svg viewBox="0 0 88 88">
+            <circle cx="44" cy="44" r="38" fill="none" stroke="#F4F6F8" stroke-width="9"/>
+            <circle cx="44" cy="44" r="38" fill="none" stroke="#4ECDC4" stroke-width="9"
+              stroke-dasharray="238.7" stroke-dashoffset="88" stroke-linecap="round"/>
+          </svg>
+          <div class="ring-center"><b>63%</b><span>libre</span></div>
+        </div>
+        <div class="ring-info">
+          <div class="kpi-label">Dinero no asignado</div>
+          <div class="kpi-value" style="font-size:22px;">Q 6,270</div>
+          <div class="card-sub">Sin comprometer en presupuesto</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUDGET + COMPARISON -->
+    <div class="row-2col">
+      <div class="card">
+        <div class="card-title">Presupuesto y alertas</div>
+        <div class="card-sub">Consumo por categoría — agosto</div>
+
+        <div class="budget-item">
+          <div class="budget-top"><span class="cat">Vivienda</span><span class="amt">Q 3,200 / Q 4,000</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:80%"></div></div>
+        </div>
+        <div class="budget-item">
+          <div class="budget-top"><span class="cat">Comida <span class="badge">80% usado</span></span><span class="amt">Q 1,600 / Q 2,000</span></div>
+          <div class="bar-track"><div class="bar-fill warn" style="width:80%"></div></div>
+        </div>
+        <div class="budget-item">
+          <div class="budget-top"><span class="cat">Transporte <span class="badge">Superado</span></span><span class="amt">Q 1,150 / Q 1,000</span></div>
+          <div class="bar-track"><div class="bar-fill warn" style="width:100%"></div></div>
+        </div>
+        <div class="budget-item">
+          <div class="budget-top"><span class="cat">Servicios</span><span class="amt">Q 480 / Q 1,200</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:40%"></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Ingresos vs. gastos</div>
+        <div class="card-sub">Últimos 6 meses</div>
+        <div class="chart-area">
+          <div class="chart-col"><div class="bars"><div class="b-income" style="height:70px"></div><div class="b-expense" style="height:50px"></div></div><span>Mar</span></div>
+          <div class="chart-col"><div class="bars"><div class="b-income" style="height:82px"></div><div class="b-expense" style="height:60px"></div></div><span>Abr</span></div>
+          <div class="chart-col"><div class="bars"><div class="b-income" style="height:65px"></div><div class="b-expense" style="height:68px"></div></div><span>May</span></div>
+          <div class="chart-col"><div class="bars"><div class="b-income" style="height:90px"></div><div class="b-expense" style="height:55px"></div></div><span>Jun</span></div>
+          <div class="chart-col"><div class="bars"><div class="b-income" style="height:78px"></div><div class="b-expense" style="height:62px"></div></div><span>Jul</span></div>
+          <div class="chart-col"><div class="bars"><div class="b-income" style="height:110px"></div><div class="b-expense" style="height:74px"></div></div><span>Ago</span></div>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--cobalt)"></i>Ingresos</span>
+          <span><i style="background:var(--turquoise)"></i>Gastos</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHART CATEGORY -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title">Gasto por categoría</div>
+      <div class="card-sub">Distribución de agosto</div>
+      <div class="donut-row" style="margin-top:16px;">
+        <div class="donut-wrap">
+          <svg viewBox="0 0 42 42">
+            <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#F4F6F8" stroke-width="6"></circle>
+            <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#1F3A5A" stroke-width="6"
+              stroke-dasharray="26 74" stroke-dashoffset="25" ></circle>
+            <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#0052FF" stroke-width="6"
+              stroke-dasharray="13 87" stroke-dashoffset="-1" ></circle>
+            <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#FF6B4A" stroke-width="6"
+              stroke-dasharray="9 91" stroke-dashoffset="-14" ></circle>
+            <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#4ECDC4" stroke-width="6"
+              stroke-dasharray="4 96" stroke-dashoffset="-23" ></circle>
+          </svg>
+        </div>
+        <div class="donut-legend">
+          <div class="item"><span class="dot" style="background:#1F3A5A"></span>Vivienda<b>26%</b></div>
+          <div class="item"><span class="dot" style="background:#0052FF"></span>Comida<b>13%</b></div>
+          <div class="item"><span class="dot" style="background:#FF6B4A"></span>Transporte<b>9%</b></div>
+          <div class="item"><span class="dot" style="background:#4ECDC4"></span>Servicios<b>4%</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SOURCES + SUMMARY -->
+    <div class="row-2col" style="margin-bottom:0;">
+      <div class="card">
+        <div class="card-title">Fuentes de ingreso</div>
+        <div class="card-sub">3 fuentes activas</div>
+
+        <div class="source-item">
+          <div class="source-left"><div class="source-icon">SP</div>
+            <div><div class="source-name">Sueldo principal</div><div class="source-freq">Mensual</div></div>
+          </div>
+          <div class="source-amt">Q 14,000</div>
+        </div>
+        <div class="source-item">
+          <div class="source-left"><div class="source-icon">FL</div>
+            <div><div class="source-name">Freelance diseño</div><div class="source-freq">Variable</div></div>
+          </div>
+          <div class="source-amt">Q 3,450</div>
+        </div>
+        <div class="source-item">
+          <div class="source-left"><div class="source-icon">RE</div>
+            <div><div class="source-name">Renta de local</div><div class="source-freq">Mensual</div></div>
+          </div>
+          <div class="source-amt">Q 1,000</div>
+        </div>
+      </div>
+
+      <div class="card stack-card">
+        <div>
+          <div class="card-title">Resumen mensual</div>
+          <div class="card-sub">Agosto 2026</div>
+        </div>
+        <div class="mini-row"><span class="label">Total ingresado</span><span class="val">Q 18,450</span></div>
+        <div class="mini-row"><span class="label">Total gastado</span><span class="val">Q 12,180</span></div>
+        <div class="mini-row"><span class="label">Ahorro del mes</span><span class="val" style="color:#1E9E6C">Q 6,270</span></div>
+        <div class="divider"></div>
+        <div class="tax-box">
+          <div>
+            <div class="card-title" style="font-size:13px;">Impuestos estimados</div>
+            <div class="tax-box rate">Tasa configurada: 12%</div>
+          </div>
+          <div class="amt">Q 2,214</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MOBILE FAB + BOTTOM NAV -->
+<button class="fab" (click)="goTo('/income')">+</button>
+<nav class="bottom-nav">
+  <a class="active" (click)="goTo('/dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</a>
+  <a (click)="goTo('/income')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Ingresos</a>
+  <a (click)="goTo('/expenses')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Gastos</a>
+  <a (click)="goTo('/budget')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19h16M7 19V9m5 10V5m5 14v-7"/></svg>Presupuesto</a>
+  <a (click)="goTo('/settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87"/></svg>Config</a>
+</nav>

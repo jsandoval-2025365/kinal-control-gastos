@@ -1,0 +1,422 @@
+/* ================================
+   CONFIGURACIÓN GENERAL
+================================ */
+
+:host {
+    display: block;
+    width: 100%;
+    min-height: 100vh;
+    background: #eef0f2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+
+/* ================================
+   CONTENEDOR PRINCIPAL
+================================ */
+
+.login-container {
+    width: 900px;
+    max-width: 90%;
+    height: 450px;
+
+    display: flex;
+    background: #ffffff;
+
+    border-radius: 18px;
+    overflow: hidden;
+
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.20);
+}
+
+
+/* ================================
+   PANEL IZQUIERDO
+================================ */
+
+.welcome-panel {
+    width: 52%;
+    background: #2f3337;
+
+    color: white;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    position: relative;
+
+    padding: 40px;
+}
+
+
+/* Forma diagonal inferior */
+
+.welcome-panel::after {
+    content: "";
+
+    position: absolute;
+
+    bottom: 0;
+    right: 0;
+
+    width: 110px;
+    height: 110px;
+
+    background: #ffffff;
+
+    clip-path: polygon(
+        100% 0,
+        100% 100%,
+        0 100%
+    );
+}
+
+
+/* Forma superior */
+
+.welcome-panel::before {
+    content: "";
+
+    position: absolute;
+
+    top: 0;
+    right: 0;
+
+    width: 45px;
+    height: 45px;
+
+    background: #ffffff;
+
+    border-bottom-left-radius: 30px;
+}
+
+
+/* ================================
+   LOGO
+================================ */
+
+.logo {
+    width: 85px;
+    height: 85px;
+
+    border-radius: 50%;
+
+    background: white;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin: 25px 0 15px;
+
+    color: #2f3337;
+    font-size: 40px;
+
+    /* Necesario para contener la imagen */
+    overflow: hidden;
+}
+
+
+/* Imagen del logo */
+
+.logo img {
+    width: 180px;
+    height: auto;
+
+    max-width: none;
+
+    display: block;
+    flex-shrink: 0;
+}
+
+
+/* ================================
+   TEXTOS DEL PANEL
+================================ */
+
+.welcome-panel h1 {
+    font-size: 25px;
+    font-weight: bold;
+
+    margin-bottom: 5px;
+}
+
+.welcome-panel p {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.brand {
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+
+/* ================================
+   ENLACES INFERIORES
+================================ */
+
+.panel-links {
+    position: absolute;
+
+    bottom: 22px;
+    left: 30px;
+
+    font-size: 9px;
+    z-index: 2;
+}
+
+.panel-links a {
+    color: #ffffff;
+    text-decoration: none;
+    margin-right: 10px;
+}
+
+
+/* ================================
+   PANEL DEL FORMULARIO
+================================ */
+
+.form-panel {
+    width: 48%;
+
+    background: #ffffff;
+
+    display: flex;
+    flex-direction: column;
+
+    justify-content: center;
+
+    padding: 50px;
+}
+
+
+/* ================================
+   TÍTULO
+================================ */
+
+.form-panel h2 {
+    font-size: 26px;
+
+    color: #2f3337;
+
+    margin-bottom: 8px;
+}
+
+.form-panel .description {
+    font-size: 10px;
+    color: #777;
+
+    margin-bottom: 25px;
+}
+
+
+/* ================================
+   MENSAJE DE ERROR
+================================ */
+
+.error-text {
+    font-size: 11px;
+    color: #c0392b;
+    margin-bottom: 12px;
+}
+
+
+/* ================================
+   CAMPOS
+================================ */
+
+.input-group {
+    margin-bottom: 12px;
+}
+
+.input-group input {
+    width: 100%;
+
+    height: 40px;
+
+    border: 1px solid #cfd2d4;
+
+    border-radius: 4px;
+
+    padding: 0 12px;
+
+    font-size: 12px;
+
+    outline: none;
+
+    transition: 0.2s;
+}
+
+.input-group input:focus {
+    border-color: #2f3337;
+
+    box-shadow: 0 0 0 2px rgba(47, 51, 55, 0.10);
+}
+
+
+/* ================================
+   OPCIONES
+================================ */
+
+.form-options {
+    display: flex;
+
+    justify-content: space-between;
+
+    font-size: 10px;
+
+    margin: 5px 0 18px;
+}
+
+.form-options a {
+    color: #555;
+
+    text-decoration: none;
+}
+
+.form-options a:hover {
+    text-decoration: underline;
+}
+
+
+/* ================================
+   BOTÓN
+================================ */
+
+.btn-login {
+    width: 100%;
+
+    height: 40px;
+
+    border: none;
+
+    border-radius: 3px;
+
+    background: #2f3337;
+
+    color: white;
+
+    font-size: 13px;
+
+    font-weight: bold;
+
+    cursor: pointer;
+
+    transition: 0.3s;
+}
+
+.btn-login:hover {
+    background: #17191b;
+
+    transform: translateY(-1px);
+}
+
+.btn-login:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+
+/* ================================
+   REGISTRO
+================================ */
+
+.register-text {
+    margin-top: 18px;
+
+    font-size: 10px;
+
+    color: #777;
+
+    text-align: left;
+}
+
+.register-text a {
+    color: #2f3337;
+
+    font-weight: bold;
+
+    text-decoration: none;
+}
+
+.register-text a:hover {
+    text-decoration: underline;
+}
+
+
+/* ================================
+   RESPONSIVE
+================================ */
+
+@media (max-width: 750px) {
+
+    .login-container {
+        width: 95%;
+        height: auto;
+
+        flex-direction: column;
+    }
+
+    .welcome-panel {
+        width: 100%;
+
+        height: 250px;
+    }
+
+    .form-panel {
+        width: 100%;
+
+        padding: 35px;
+    }
+
+}
+
+
+/* ================================
+   MÓVIL
+================================ */
+
+@media (max-width: 480px) {
+
+    .welcome-panel {
+        height: 220px;
+
+        padding: 20px;
+    }
+
+    .welcome-panel h1 {
+        font-size: 20px;
+    }
+
+    .logo {
+        width: 65px;
+        height: 65px;
+
+        font-size: 30px;
+    }
+
+    /* Ajuste únicamente necesario para el logo */
+    .logo img {
+        width: 140px;
+    }
+
+    .form-panel {
+        padding: 25px;
+    }
+
+    .form-panel h2 {
+        font-size: 22px;
+    }
+
+}

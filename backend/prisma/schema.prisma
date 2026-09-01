@@ -1,0 +1,61 @@
+// Prisma schema — sistema de autenticación y autorización
+// PostgreSQL 18.4
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(USER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions Session[]
+  // Recurso de ejemplo para demostrar "ownership" (sección 13).
+  // Se puede eliminar o extender según las funcionalidades reales de la app.
+  notes    Note[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ipAddress String?
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// Entidad de ejemplo para demostrar control de propiedad de recursos (IDOR).
+// No es parte "obligatoria" del sistema de auth, pero se incluye para poder
+// probar acceso horizontal no autorizado (sección 13 / pruebas sección 23).
+model Note {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("notes")
+}
