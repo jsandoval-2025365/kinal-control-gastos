@@ -1,41 +1,65 @@
-import { Component, signal } from "@angular/core";
-import { FormsModule } from "@angular/forms";
+import { Component, HostListener, signal } from "@angular/core";
 import { Router, RouterLink } from "@angular/router";
 import { AuthService } from "../../core/auth/auth.service";
 import { SessionTimeoutService } from "../../core/auth/session-timeout.service";
+import { NotificationService } from "../../shared/coming-soon/notifications/notification.service";
 
 @Component({
-  selector: "app-login",
+  selector: "app-income",
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [RouterLink],
   templateUrl: "./ingresos.component.html",
   styleUrl: "./ingresos.component.css",
 })
-export class LoginComponent {
-  email = "";
-  password = "";
-  loading = signal(false);
-  error = signal<string | null>(null);
+export class IncomeComponent {
+  /** Controla la visibilidad del menú desplegable del usuario (idéntico al dashboard). */
+  userMenuOpen = signal(false);
 
   constructor(
-    private auth: AuthService,
+    public auth: AuthService,
     private router: Router,
-    private sessionTimeout: SessionTimeoutService
+    private sessionTimeout: SessionTimeoutService,
+    private notifications: NotificationService
   ) {}
 
-  onSubmit(): void {
-    this.error.set(null);
-    this.loading.set(true);
-    this.auth.login({ email: this.email, password: this.password }).subscribe({
-      next: () => {
-        this.loading.set(false);
-        this.sessionTimeout.scheduleFromExpiresAt(this.auth.expiresAt());
-        this.router.navigate(["/dashboard"]);
-      },
-      error: (err) => {
-        this.loading.set(false);
-        this.error.set(err?.error?.error ?? "No se pudo iniciar sesión");
-      },
+  get initials(): string {
+    const email = this.auth.currentUser()?.email ?? "";
+    return email.slice(0, 2).toUpperCase();
+  }
+
+  toggleUserMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.userMenuOpen.update((open) => !open);
+  }
+
+  @HostListener("document:click")
+  closeUserMenu(): void {
+    if (this.userMenuOpen()) {
+      this.userMenuOpen.set(false);
+    }
+  }
+
+  /** Navega a otra sección del sidebar/nav inferior. */
+  goTo(path: string): void {
+    this.userMenuOpen.set(false);
+    this.router.navigate([path]);
+  }
+
+  /**
+   * Acciones de esta vista (exportar, agregar/editar/eliminar fuente) todavía
+   * no tienen backend implementado — en vez de navegar a un lugar sin
+   * sentido, se muestra un aviso reutilizando el sistema de notificaciones
+   * genérico (NotificationService).
+   */
+  notImplementedYet(): void {
+    this.notifications.info("Esta función estará disponible próximamente.");
+  }
+
+  onLogout(): void {
+    this.sessionTimeout.stop();
+    this.auth.logout().subscribe({
+      next: () => this.router.navigate(["/login"]),
+      error: () => this.router.navigate(["/login"]),
     });
   }
 }
