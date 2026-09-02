@@ -1,79 +1,253 @@
 import { Injectable, signal } from "@angular/core";
-import { Router } from "@angular/router";
+import { Router, NavigationEnd } from "@angular/router";
+import { filter } from "rxjs";
 import { AuthService } from "./auth.service";
 import { NotificationService } from "../../shared/coming-soon/notifications/notification.service";
 
-/**
- * Debe coincidir con `SESSION_REFRESH_GRACE_SECONDS` del backend
- * (backend/src/config/env.ts). Si cambias uno, cambia el otro.
+/*
+ * Tiempo máximo sin interacción antes de mostrar la advertencia.
+ *
+ * EJEMPLO:
+ * 5 minutos de inactividad
+ */
+const INACTIVITY_TIMEOUT_MS = 5 * 60_000;
+
+/*
+ * Tiempo que tiene el usuario para continuar la sesión
+ * después de que aparece la advertencia.
  */
 const GRACE_MS = 60_000;
 
-/**
- * Orquesta el aviso de expiración de sesión:
+/*
+ * Renovar el JWT antes de que expire.
  *
- *  1. Cuando el JWT expira, muestra una notificación de advertencia con
- *     cuenta regresiva y un botón "Continuar sesión".
- *  2. Durante ese minuto de gracia, CUALQUIER petición HTTP del usuario
- *     (detectada por `authInterceptor` vía `notifyActivity()`) renueva la
- *     sesión automáticamente — no hace falta que el usuario presione nada.
- *  3. Si el minuto pasa sin actividad, fuerza el cierre de sesión: llama
- *     al backend para revocar la sesión y limpiar la cookie, y redirige a
- *     `/login`.
- *
- * No conoce nada de componentes de UI concretos — solo habla con
- * `NotificationService` (genérico) y `AuthService`. Esto es justo el
- * patrón de "conexión sin acoplamiento" que evita que un componente
- * dependa directamente de otro.
+ * Esto evita que el JWT caduque mientras el usuario
+ * sigue utilizando activamente la aplicación.
  */
+const REFRESH_BEFORE_EXPIRY_MS = 30_000;
+
+/*
+ * Evita ejecutar demasiadas veces la lógica de actividad
+ * cuando el usuario mueve constantemente el mouse.
+ */
+const ACTIVITY_THROTTLE_MS = 1_000;
+
 @Injectable({ providedIn: "root" })
 export class SessionTimeoutService {
-  /** true mientras está activa la ventana de gracia de 1 minuto. */
   readonly graceActive = signal(false);
 
-  private expiryTimer: ReturnType<typeof setTimeout> | null = null;
+  private inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private graceTimer: ReturnType<typeof setTimeout> | null = null;
   private countdownInterval: ReturnType<typeof setInterval> | null = null;
+
   private notificationId: string | null = null;
   private graceDeadline: number | null = null;
+
+  private lastActivity = Date.now();
+  private lastActivityNotification = 0;
+
+  private refreshInProgress = false;
 
   constructor(
     private auth: AuthService,
     private notifications: NotificationService,
     private router: Router
-  ) {}
-
-  /** Reprograma el aviso según el `expiresAt` vigente (llamar tras login/refresh/reload). */
-  scheduleFromExpiresAt(expiresAt: Date | null): void {
-    this.clearTimers();
-    if (!expiresAt) return;
-
-    const msUntilExpiry = expiresAt.getTime() - Date.now();
-    if (msUntilExpiry <= 0) {
-      this.handleExpiry();
-      return;
-    }
-    this.expiryTimer = setTimeout(() => this.handleExpiry(), msUntilExpiry);
+  ) {
+    this.startActivityListeners();
+    this.startNavigationListener();
   }
 
   /**
-   * Llamado por `authInterceptor` en cada petición HTTP exitosa. Si
-   * estamos dentro de la ventana de gracia, cuenta como "el usuario volvió
-   * a hacer una petición / acceder a un recurso" y renueva la sesión.
+   * Se llama después de login, refresh o recuperación de sesión.
    */
-  notifyActivity(): void {
-    if (this.graceActive()) {
-      this.extendNow();
+  scheduleFromExpiresAt(expiresAt: Date | null): void {
+    this.clearTimers();
+
+    if (!expiresAt) {
+      return;
     }
+
+    this.lastActivity = Date.now();
+
+    /*
+     * Inicia nuevamente el contador de inactividad.
+     */
+    this.scheduleInactivityTimer();
+
+    /*
+     * Programa la renovación preventiva del JWT.
+     */
+    this.scheduleRefreshTimer(expiresAt);
   }
 
-  /** Se llama al hacer logout manual, para no dejar timers corriendo de fondo. */
+  /**
+   * Registra una actividad del usuario.
+   *
+   * Si la advertencia ya está activa:
+   * - cancela la advertencia
+   * - intenta renovar la sesión
+   *
+   * Si todavía no está en advertencia:
+   * - reinicia el contador de inactividad
+   */
+  notifyActivity(): void {
+    const now = Date.now();
+
+    /*
+     * Evita procesar eventos de actividad demasiadas veces.
+     */
+    if (
+      now - this.lastActivityNotification <
+      ACTIVITY_THROTTLE_MS
+    ) {
+      return;
+    }
+
+    this.lastActivityNotification = now;
+
+    /*
+     * Si estamos dentro de los 60 segundos de gracia,
+     * cualquier interacción del usuario significa que
+     * quiere continuar utilizando la aplicación.
+     */
+    if (this.graceActive()) {
+      this.extendNow();
+      return;
+    }
+
+    this.lastActivity = now;
+
+    this.scheduleInactivityTimer();
+  }
+
+  /**
+   * Detiene todos los temporizadores.
+   */
   stop(): void {
     this.clearTimers();
   }
 
-  private handleExpiry(): void {
+  /**
+   * Escucha las acciones normales del usuario.
+   */
+  private startActivityListeners(): void {
+    const events = [
+      "click",
+      "mousedown",
+      "keydown",
+      "input",
+      "scroll",
+      "touchstart",
+      "mousemove",
+    ];
+
+    events.forEach((eventName) => {
+      document.addEventListener(
+        eventName,
+        () => this.notifyActivity(),
+        { passive: true }
+      );
+    });
+  }
+
+  /**
+   * Considera la navegación entre vistas como actividad.
+   */
+  private startNavigationListener(): void {
+    this.router.events
+      .pipe(filter((event) => event instanceof NavigationEnd))
+      .subscribe(() => {
+        this.notifyActivity();
+      });
+  }
+
+  /**
+   * Programa el temporizador que detectará la inactividad.
+   */
+  private scheduleInactivityTimer(): void {
+    if (this.inactivityTimer) {
+      clearTimeout(this.inactivityTimer);
+    }
+
+    this.inactivityTimer = setTimeout(() => {
+      this.handleInactivity();
+    }, INACTIVITY_TIMEOUT_MS);
+  }
+
+  /**
+   * Programa una renovación preventiva del JWT.
+   */
+  private scheduleRefreshTimer(expiresAt: Date): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+    }
+
+    const refreshAt =
+      expiresAt.getTime() - REFRESH_BEFORE_EXPIRY_MS;
+
+    const delay = Math.max(0, refreshAt - Date.now());
+
+    this.refreshTimer = setTimeout(() => {
+      this.refreshIfActive(expiresAt);
+    }, delay);
+  }
+
+  /**
+   * Renueva el JWT solamente si el usuario
+   * todavía está dentro del periodo considerado activo.
+   */
+  private refreshIfActive(expiresAt: Date): void {
+    if (this.refreshInProgress) {
+      return;
+    }
+
+    const inactiveFor = Date.now() - this.lastActivity;
+
+    /*
+     * Si ya superó el tiempo de inactividad,
+     * no renovamos el JWT.
+     *
+     * El temporizador de inactividad será el encargado
+     * de mostrar la advertencia.
+     */
+    if (inactiveFor >= INACTIVITY_TIMEOUT_MS) {
+      this.handleInactivity();
+      return;
+    }
+
+    /*
+     * Si todavía está activo, renovamos el JWT.
+     */
+    this.refreshInProgress = true;
+
+    this.auth.refreshSession().subscribe({
+      next: (res) => {
+        this.refreshInProgress = false;
+
+        this.scheduleFromExpiresAt(res.expiresAt);
+      },
+
+      error: () => {
+        this.refreshInProgress = false;
+        this.forceLogout();
+      },
+    });
+  }
+
+  /**
+   * Se ejecuta cuando el usuario lleva demasiado tiempo
+   * sin interactuar.
+   */
+  private handleInactivity(): void {
+    if (this.graceActive()) {
+      return;
+    }
+
+    this.clearInactivityTimer();
+
     this.graceActive.set(true);
+
     this.graceDeadline = Date.now() + GRACE_MS;
 
     this.notificationId = this.notifications.show({
@@ -85,52 +259,131 @@ export class SessionTimeoutService {
     });
 
     this.countdownInterval = setInterval(() => {
-      if (!this.notificationId) return;
+      if (!this.notificationId) {
+        return;
+      }
+
       this.notifications.update(this.notificationId, {
         message: this.buildCountdownMessage(),
       });
     }, 1000);
 
-    this.graceTimer = setTimeout(() => this.forceLogout(), GRACE_MS);
+    this.graceTimer = setTimeout(() => {
+      this.forceLogout();
+    }, GRACE_MS);
   }
 
+  /**
+   * Construye el mensaje del contador.
+   */
   private buildCountdownMessage(): string {
     const secondsLeft = Math.max(
       0,
-      Math.ceil(((this.graceDeadline ?? 0) - Date.now()) / 1000)
+      Math.ceil(
+        ((this.graceDeadline ?? 0) - Date.now()) / 1000
+      )
     );
-    return `Su sesión ha expirado. Tiene ${secondsLeft}s para continuar antes de que se cierre automáticamente.`;
+
+    return `Su sesión está a punto de expirar por inactividad. Tiene ${secondsLeft}s para continuar.`;
   }
 
+  /**
+   * Renueva la sesión cuando el usuario vuelve a interactuar
+   * durante los 60 segundos de advertencia.
+   */
   private extendNow(): void {
-    this.clearTimers();
-    this.auth.refreshSession().subscribe({
-      next: (res) => this.scheduleFromExpiresAt(res.expiresAt),
-      error: () => this.forceLogout(),
-    });
-  }
+    if (this.refreshInProgress) {
+      return;
+    }
 
-  private forceLogout(): void {
+    this.refreshInProgress = true;
+
     this.clearTimers();
-    this.auth.forceExpireSession().subscribe({
-      complete: () => {
-        this.router.navigate(["/login"]);
-        this.notifications.info("Su sesión se cerró por inactividad. Porfavor vuelva a iniciar sesión.");
+
+    this.lastActivity = Date.now();
+
+    this.auth.refreshSession().subscribe({
+      next: (res) => {
+        this.refreshInProgress = false;
+
+        this.scheduleFromExpiresAt(res.expiresAt);
+      },
+
+      error: () => {
+        this.refreshInProgress = false;
+
+        this.forceLogout();
       },
     });
   }
 
-  private clearTimers(): void {
-    if (this.expiryTimer) clearTimeout(this.expiryTimer);
-    if (this.graceTimer) clearTimeout(this.graceTimer);
-    if (this.countdownInterval) clearInterval(this.countdownInterval);
-    if (this.notificationId) this.notifications.dismiss(this.notificationId);
+  /**
+   * Cierra definitivamente la sesión.
+   */
+  private forceLogout(): void {
+    this.clearTimers();
 
-    this.expiryTimer = null;
+    this.auth.forceExpireSession().subscribe({
+      complete: () => {
+        this.router.navigate(["/login"]);
+
+        this.notifications.info(
+          "Su sesión se cerró por inactividad. Por favor vuelva a iniciar sesión."
+        );
+      },
+
+      error: () => {
+        this.router.navigate(["/login"]);
+
+        this.notifications.info(
+          "Su sesión se cerró por inactividad. Por favor vuelva a iniciar sesión."
+        );
+      },
+    });
+  }
+
+  /**
+   * Cancela solamente el temporizador de inactividad.
+   */
+  private clearInactivityTimer(): void {
+    if (this.inactivityTimer) {
+      clearTimeout(this.inactivityTimer);
+      this.inactivityTimer = null;
+    }
+  }
+
+  /**
+   * Limpia todos los temporizadores.
+   */
+  private clearTimers(): void {
+    if (this.inactivityTimer) {
+      clearTimeout(this.inactivityTimer);
+    }
+
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+    }
+
+    if (this.graceTimer) {
+      clearTimeout(this.graceTimer);
+    }
+
+    if (this.countdownInterval) {
+      clearInterval(this.countdownInterval);
+    }
+
+    if (this.notificationId) {
+      this.notifications.dismiss(this.notificationId);
+    }
+
+    this.inactivityTimer = null;
+    this.refreshTimer = null;
     this.graceTimer = null;
     this.countdownInterval = null;
+
     this.notificationId = null;
     this.graceDeadline = null;
+
     this.graceActive.set(false);
   }
 }
