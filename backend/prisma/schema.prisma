@@ -15,6 +15,12 @@ enum Role {
   ADMIN
 }
 
+enum IncomeFrequency {
+  MENSUAL
+  VARIABLE
+  UNICA
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -27,6 +33,7 @@ model User {
   // Recurso de ejemplo para demostrar "ownership" (sección 13).
   // Se puede eliminar o extender según las funcionalidades reales de la app.
   notes    Note[]
+  incomes  Income[]
 
   @@map("users")
 }
@@ -58,4 +65,23 @@ model Note {
 
   @@index([userId])
   @@map("notes")
+}
+
+// Ingresos del usuario. Cada fila es UN movimiento (no una "fuente"
+// recurrente separada) — las fuentes que se ven en el frontend se agrupan
+// a partir de estos movimientos por nombre de `source`. Ver módulo Ingresos.
+model Income {
+  id        String          @id @default(uuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source    String
+  amount    Decimal         @db.Decimal(12, 2)
+  frequency IncomeFrequency @default(VARIABLE)
+  date      DateTime
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([userId, date])
+  @@map("incomes")
 }
