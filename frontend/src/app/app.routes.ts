@@ -29,14 +29,14 @@ export const routes: Routes = [
     loadComponent: () =>
       import("./features/admin/admin.component").then((m) => m.AdminComponent),
   },
-  // Secciones todavía no implementadas: muestran una vista genérica de "próximamente".
+  // "Ingresos" ya tiene vista real implementada.
   {
     path: "income",
     canActivate: [authGuard],
     loadComponent: () =>
-      import("./shared/coming-soon/coming-soon.component").then((m) => m.ComingSoonComponent),
-    data: { title: "Ingresos" },
+      import("./features/ingresos/ingresos.component").then((m) => m.IncomeComponent),
   },
+  // Secciones todavía no implementadas: muestran una vista genérica de "próximamente".
   {
     path: "expenses",
     canActivate: [authGuard],

@@ -4,13 +4,15 @@ import { catchError, switchMap, tap, throwError } from "rxjs";
 import { Router } from "@angular/router";
 import { CsrfService } from "./csrf.service";
 import { AuthService } from "./auth.service";
-import { SessionTimeoutService } from "./session-timeout.service";
+import { ActivityTrackerService } from "./activity-tracker.service";
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-// Endpoints de mantenimiento de sesión: nunca deben contar como "actividad
-// del usuario" ni disparar notifyActivity() — evitaría un bucle
-// (renovar -> contar como actividad -> intentar renovar de nuevo...).
+// Endpoints de mantenimiento de sesión: NUNCA deben contar como "actividad
+// del usuario". Si `session-expire` (que se llama precisamente cuando el
+// usuario está inactivo) marcara actividad, el reloj de inactividad se
+// reiniciaría solo y el cierre automático de sesión nunca terminaría de
+// ejecutarse.
 const SESSION_MAINTENANCE_PATHS = ["/auth/refresh", "/auth/session-expire", "/csrf-token"];
 
 /**
@@ -18,15 +20,15 @@ const SESSION_MAINTENANCE_PATHS = ["/auth/refresh", "/auth/session-expire", "/cs
  *  1. Añade `withCredentials: true` para que la cookie de sesión viaje.
  *  2. Adjunta el header `x-csrf-token` en peticiones mutantes.
  *  3. Si el backend responde 401, limpia el estado local y redirige a login.
- *  4. Notifica a `SessionTimeoutService` de cada petición exitosa, para que
- *     pueda detectar "actividad del usuario" durante la ventana de gracia
- *     de expiración y renovar la sesión automáticamente.
+ *  4. Alimenta `ActivityTrackerService` con cada petición exitosa que no
+ *     sea de mantenimiento de sesión, para que hacer consultas al backend
+ *     también cuente como "actividad real" del usuario.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const csrf = inject(CsrfService);
   const auth = inject(AuthService);
   const router = inject(Router);
-  const sessionTimeout = inject(SessionTimeoutService);
+  const activity = inject(ActivityTrackerService);
 
   const withCreds = req.clone({ withCredentials: true });
   const isMaintenanceCall = SESSION_MAINTENANCE_PATHS.some((path) => req.url.includes(path));
@@ -35,7 +37,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     next(finalReq).pipe(
       tap(() => {
         if (!isMaintenanceCall) {
-          sessionTimeout.notifyActivity();
+          activity.markActive();
         }
       }),
       catchError((err: HttpErrorResponse) => {
