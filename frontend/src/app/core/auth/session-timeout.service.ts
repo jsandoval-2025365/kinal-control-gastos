@@ -2,96 +2,160 @@ import { Injectable, signal } from "@angular/core";
 import { Router } from "@angular/router";
 import { AuthService } from "./auth.service";
 import { NotificationService } from "../../shared/coming-soon/notifications/notification.service";
+import { ActivityTrackerService } from "./activity-tracker.service";
 
-/**
- * Debe coincidir con `SESSION_REFRESH_GRACE_SECONDS` del backend
- * (backend/src/config/env.ts). Si cambias uno, cambia el otro.
- */
+/** Debe coincidir con `SESSION_REFRESH_GRACE_SECONDS` del backend. */
 const GRACE_MS = 60_000;
 
 /**
- * Orquesta el aviso de expiración de sesión:
+ * Cuánto tiempo SIN actividad real (sin navegar, sin escribir, sin hacer
+ * peticiones) se considera "usuario inactivo". Al cruzar este umbral
+ * arranca el aviso de expiración + el margen de gracia de un minuto.
+ * Si el usuario vuelve a interactuar antes de que termine ese margen,
+ * el aviso se cancela y el contador de inactividad se reinicia desde cero
+ * (porque se recalcula en cada tick a partir de la actividad real más
+ * reciente, no de un valor guardado aparte).
+ */
+const IDLE_THRESHOLD_MS = 5 * 60_000; // 5 minutos — ajustar aquí si se necesita otro umbral
+
+/**
+ * Mientras el usuario SIGUE ACTIVO (por debajo del umbral de inactividad),
+ * el JWT se renueva EN SILENCIO un poco antes de vencer, sin mostrar
+ * ningún aviso — así la sesión nunca se interrumpe mientras la persona
+ * sigue trabajando en la app, sin importar cuánto dure esa sesión de
+ * trabajo continuo.
+ */
+const REFRESH_LEAD_MS = 60_000; // renovar 1 minuto antes del vencimiento real del JWT
+
+/** Frecuencia con la que se revisa el estado de actividad/expiración. */
+const HEARTBEAT_MS = 1_000;
+
+/**
+ * Orquesta la sesión combinando DOS mecanismos independientes:
  *
- *  1. Cuando el JWT expira, muestra una notificación de advertencia con
- *     cuenta regresiva y un botón "Continuar sesión".
- *  2. Durante ese minuto de gracia, CUALQUIER petición HTTP del usuario
- *     (detectada por `authInterceptor` vía `notifyActivity()`) renueva la
- *     sesión automáticamente — no hace falta que el usuario presione nada.
- *  3. Si el minuto pasa sin actividad, fuerza el cierre de sesión: llama
- *     al backend para revocar la sesión y limpiar la cookie, y redirige a
- *     `/login`.
- *
- * No conoce nada de componentes de UI concretos — solo habla con
- * `NotificationService` (genérico) y `AuthService`. Esto es justo el
- * patrón de "conexión sin acoplamiento" que evita que un componente
- * dependa directamente de otro.
+ *  1. RENOVACIÓN SILENCIOSA: si el usuario está activo y el JWT está por
+ *     vencer, se renueva solo, sin avisar nada.
+ *  2. CIERRE POR INACTIVIDAD: si el usuario deja de interactuar por
+ *     `IDLE_THRESHOLD_MS`, se muestra el aviso con cuenta regresiva de
+ *     `GRACE_MS`. Cualquier actividad durante ese margen cancela el aviso
+ *     y reinicia el reloj de inactividad. Si el margen termina sin
+ *     actividad, se cierra la sesión de verdad (revocación + limpieza de
+ *     cookie en el backend).
  */
 @Injectable({ providedIn: "root" })
 export class SessionTimeoutService {
-  /** true mientras está activa la ventana de gracia de 1 minuto. */
+  /** true mientras se está mostrando el aviso de inactividad. */
   readonly graceActive = signal(false);
 
-  private expiryTimer: ReturnType<typeof setTimeout> | null = null;
-  private graceTimer: ReturnType<typeof setTimeout> | null = null;
-  private countdownInterval: ReturnType<typeof setInterval> | null = null;
-  private notificationId: string | null = null;
+  private expiresAt: Date | null = null;
+  private heartbeatHandle: ReturnType<typeof setInterval> | null = null;
   private graceDeadline: number | null = null;
+  private notificationId: string | null = null;
+  private refreshInFlight = false;
 
   constructor(
     private auth: AuthService,
     private notifications: NotificationService,
-    private router: Router
+    private router: Router,
+    private activity: ActivityTrackerService
   ) {}
 
-  /** Reprograma el aviso según el `expiresAt` vigente (llamar tras login/refresh/reload). */
+  /** Se llama tras login/refresh/reload para (re)armar el vigilante de sesión. */
   scheduleFromExpiresAt(expiresAt: Date | null): void {
-    this.clearTimers();
-    if (!expiresAt) return;
-
-    const msUntilExpiry = expiresAt.getTime() - Date.now();
-    if (msUntilExpiry <= 0) {
-      this.handleExpiry();
+    this.expiresAt = expiresAt;
+    if (!expiresAt) {
+      this.stop();
       return;
     }
-    this.expiryTimer = setTimeout(() => this.handleExpiry(), msUntilExpiry);
+    // Iniciar/renovar sesión cuenta como actividad: el reloj de
+    // inactividad arranca en cero, no desde que se cargó la página.
+    this.activity.markActive();
+    this.startHeartbeat();
   }
 
-  /**
-   * Llamado por `authInterceptor` en cada petición HTTP exitosa. Si
-   * estamos dentro de la ventana de gracia, cuenta como "el usuario volvió
-   * a hacer una petición / acceder a un recurso" y renueva la sesión.
-   */
-  notifyActivity(): void {
+  /** Se llama en logout manual, para no dejar el vigilante corriendo de fondo. */
+  stop(): void {
+    if (this.heartbeatHandle) {
+      clearInterval(this.heartbeatHandle);
+      this.heartbeatHandle = null;
+    }
+    this.cancelGracePeriod();
+    this.expiresAt = null;
+    this.refreshInFlight = false;
+  }
+
+  private startHeartbeat(): void {
+    if (this.heartbeatHandle) return; // ya está corriendo, no duplicar
+    this.heartbeatHandle = setInterval(() => this.tick(), HEARTBEAT_MS);
+  }
+
+  private tick(): void {
+    const idleMs = this.activity.getIdleMs();
+
+    if (idleMs >= IDLE_THRESHOLD_MS) {
+      if (!this.graceActive()) {
+        // Se acaba de cruzar el umbral de inactividad: arrancar el aviso.
+        this.startGracePeriod();
+      } else if (this.graceDeadline !== null && Date.now() >= this.graceDeadline) {
+        // El margen de gracia terminó sin actividad: cerrar sesión de verdad.
+        this.forceLogout();
+      } else {
+        this.refreshCountdownMessage();
+      }
+      return;
+    }
+
+    // El usuario está activo (por debajo del umbral de inactividad).
     if (this.graceActive()) {
-      this.extendNow();
+      // Volvió a interactuar durante el margen de gracia: cancelar el aviso.
+      this.cancelGracePeriod();
+    }
+    this.maybeRefreshNearExpiry();
+  }
+
+  /** Renueva el JWT en silencio si está por vencer y el usuario sigue activo. */
+  private maybeRefreshNearExpiry(): void {
+    if (!this.expiresAt || this.refreshInFlight) return;
+    const msUntilExpiry = this.expiresAt.getTime() - Date.now();
+    if (msUntilExpiry <= REFRESH_LEAD_MS) {
+      this.silentRefresh();
     }
   }
 
-  /** Se llama al hacer logout manual, para no dejar timers corriendo de fondo. */
-  stop(): void {
-    this.clearTimers();
+  private silentRefresh(): void {
+    this.refreshInFlight = true;
+    this.auth.refreshSession().subscribe({
+      next: (res) => {
+        this.refreshInFlight = false;
+        this.expiresAt = res.expiresAt;
+      },
+      error: () => {
+        this.refreshInFlight = false;
+        // La sesión ya no es válida en el backend (revocada, o venció el
+        // límite absoluto de 24h) — no hay nada que renovar.
+        this.forceLogout();
+      },
+    });
   }
 
-  private handleExpiry(): void {
+  private startGracePeriod(): void {
     this.graceActive.set(true);
     this.graceDeadline = Date.now() + GRACE_MS;
-
     this.notificationId = this.notifications.show({
       type: "warning",
       message: this.buildCountdownMessage(),
       actionLabel: "Continuar sesión",
-      onAction: () => this.extendNow(),
+      onAction: () => {
+        this.activity.markActive();
+        this.cancelGracePeriod();
+      },
       dismissible: false,
     });
+  }
 
-    this.countdownInterval = setInterval(() => {
-      if (!this.notificationId) return;
-      this.notifications.update(this.notificationId, {
-        message: this.buildCountdownMessage(),
-      });
-    }, 1000);
-
-    this.graceTimer = setTimeout(() => this.forceLogout(), GRACE_MS);
+  private refreshCountdownMessage(): void {
+    if (!this.notificationId) return;
+    this.notifications.update(this.notificationId, { message: this.buildCountdownMessage() });
   }
 
   private buildCountdownMessage(): string {
@@ -99,38 +163,28 @@ export class SessionTimeoutService {
       0,
       Math.ceil(((this.graceDeadline ?? 0) - Date.now()) / 1000)
     );
-    return `Su sesión ha expirado. Tiene ${secondsLeft}s para continuar antes de que se cierre automáticamente.`;
+    return `Llevas un rato sin actividad. Tu sesión se cerrará en ${secondsLeft}s si no interactúas con la aplicación.`;
   }
 
-  private extendNow(): void {
-    this.clearTimers();
-    this.auth.refreshSession().subscribe({
-      next: (res) => this.scheduleFromExpiresAt(res.expiresAt),
-      error: () => this.forceLogout(),
-    });
+  private cancelGracePeriod(): void {
+    if (this.notificationId) {
+      this.notifications.dismiss(this.notificationId);
+      this.notificationId = null;
+    }
+    this.graceActive.set(false);
+    this.graceDeadline = null;
+    // Ya que volvió a interactuar, aprovechamos para renovar en silencio
+    // si el JWT estaba a punto de vencer mientras se mostraba el aviso.
+    this.maybeRefreshNearExpiry();
   }
 
   private forceLogout(): void {
-    this.clearTimers();
+    this.stop();
     this.auth.forceExpireSession().subscribe({
       complete: () => {
         this.router.navigate(["/login"]);
-        this.notifications.info("Su sesión se cerró por inactividad. Porfavor vuelva a iniciar sesión.");
+        this.notifications.info("Su sesión se cerró por inactividad. Vuelva a iniciar sesión.");
       },
     });
-  }
-
-  private clearTimers(): void {
-    if (this.expiryTimer) clearTimeout(this.expiryTimer);
-    if (this.graceTimer) clearTimeout(this.graceTimer);
-    if (this.countdownInterval) clearInterval(this.countdownInterval);
-    if (this.notificationId) this.notifications.dismiss(this.notificationId);
-
-    this.expiryTimer = null;
-    this.graceTimer = null;
-    this.countdownInterval = null;
-    this.notificationId = null;
-    this.graceDeadline = null;
-    this.graceActive.set(false);
   }
 }
