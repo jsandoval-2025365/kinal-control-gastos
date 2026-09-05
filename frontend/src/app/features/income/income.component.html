@@ -1,0 +1,228 @@
+<div class="app">
+  <!-- SIDEBAR (idéntico al dashboard) -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">🦝</div>
+      <span>Raccoonit</span>
+    </div>
+
+    <nav>
+      <a class="nav-item" (click)="goTo('/dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a class="nav-item active" (click)="goTo('/income')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        <span>Ingresos</span>
+      </a>
+      <a class="nav-item" (click)="goTo('/expenses')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+        <span>Gastos</span>
+      </a>
+      <a class="nav-item" (click)="goTo('/budget')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19h16M7 19V9m5 10V5m5 14v-7"/></svg>
+        <span>Presupuesto</span>
+      </a>
+      <a class="nav-item" (click)="goTo('/settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 0 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 0 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z"/></svg>
+        <span>Configuración</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-card-wrapper">
+        <div class="user-card" (click)="toggleUserMenu($event)">
+          <div class="avatar">{{ initials }}</div>
+          <div class="user-meta">
+            <div class="name">{{ auth.currentUser()?.email }}</div>
+            <div class="role">{{ auth.currentUser()?.role }}</div>
+          </div>
+        </div>
+
+        @if (userMenuOpen()) {
+          <div class="user-dropdown" (click)="$event.stopPropagation()">
+            <button type="button" class="user-dropdown__item" (click)="goTo('/settings')">
+              Ver configuración
+            </button>
+            <button type="button" class="user-dropdown__item" (click)="goTo('/settings')">
+              Mi cuenta
+            </button>
+          </div>
+        }
+      </div>
+
+      <a class="nav-item" (click)="onLogout()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <span>Cerrar sesión</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+    <div class="topbar">
+      <div>
+        <h1>Ingresos</h1>
+        <div class="sub">Administrá tus fuentes de ingreso y revisá lo registrado este mes</div>
+      </div>
+      <div class="topbar-actions">
+        <div class="icon-btn" (click)="notImplementedYet()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        </div>
+        <button class="btn ghost" (click)="notImplementedYet()">Exportar</button>
+        <button class="btn" (click)="openCreateForm()">+ Agregar ingreso</button>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="card" style="text-align:center; color:var(--gray-mid);">Cargando ingresos…</div>
+    } @else if (loadError()) {
+      <div class="card" style="color:var(--coral);">{{ loadError() }}</div>
+    } @else {
+      <!-- KPI ROW -->
+      <div class="kpi-row">
+        <div class="card kpi main">
+          <div class="kpi-label">Total ingresado este mes</div>
+          <div class="kpi-value">{{ formatAmount(totalThisMonth()) }}</div>
+          @if (monthDeltaPct() !== null) {
+            <div class="kpi-delta" [class.up]="monthDeltaPct()! >= 0" [class.down]="monthDeltaPct()! < 0">
+              {{ monthDeltaPct()! >= 0 ? "▲" : "▼" }} {{ formatPct(monthDeltaPct()!) }} vs. mes anterior
+            </div>
+          } @else {
+            <div class="kpi-note">Sin datos del mes anterior para comparar</div>
+          }
+        </div>
+        <div class="card kpi">
+          <div class="kpi-label">Fuentes activas</div>
+          <div class="kpi-value">{{ activeSources().length }}</div>
+          <div class="kpi-note">{{ frequencyBreakdown() || "Todavía no hay fuentes registradas" }}</div>
+        </div>
+        <div class="card kpi">
+          <div class="kpi-label">Fuente principal</div>
+          @if (mainSource(); as main) {
+            <div class="kpi-value" style="font-size:20px;">{{ main.source }}</div>
+            <div class="kpi-note">{{ formatPct(mainSourceShare()) }} de sus ingresos totales</div>
+          } @else {
+            <div class="kpi-value" style="font-size:20px;">—</div>
+            <div class="kpi-note">Todavía no hay ingresos registrados</div>
+          }
+        </div>
+      </div>
+
+      <!-- FUENTES DE INGRESO -->
+      <div class="section-title">Sus fuentes de ingreso</div>
+      <div class="section-sub">Gestione cada fuente registrada o agregue una nueva</div>
+
+      <div class="sources-grid">
+        @for (item of activeSources(); track item.source; let i = $index) {
+          <div class="source-card">
+            <div class="source-head">
+              <div class="avatar" [style.background]="sourceColor(i)" style="color:#fff;">{{ sourceInitials(item.source) }}</div>
+              <div class="meta">
+                <div class="name">{{ item.source }}</div>
+                <div class="freq">{{ frequencyLabel(item.frequency) }}</div>
+              </div>
+            </div>
+            <div class="source-amt-block">
+              <div class="amt">{{ formatAmount(item.total) }}</div>
+              <div class="next">Último registro: {{ formatShortDate(item.lastDate) }}</div>
+            </div>
+            <div class="source-actions">
+              <button class="btn danger-ghost" (click)="deleteSource(item)">Eliminar</button>
+              <button class="btn small" (click)="editSource(item)">Editar</button>
+            </div>
+          </div>
+        }
+
+        <div class="add-source-card" (click)="openCreateForm()">
+          <div class="plus">+</div>
+          <span>Agregar nueva fuente</span>
+        </div>
+      </div>
+
+      <!-- HISTORIAL RECIENTE -->
+      <div class="section-title">Historial reciente</div>
+      <div class="section-sub">Últimos ingresos registrados en sus fuentes</div>
+
+      @if (recentHistory().length === 0) {
+        <div class="card" style="color:var(--gray-mid);">Todavía no has registrado ningún ingreso.</div>
+      } @else {
+        <div class="card history-card">
+          <div class="history-row head">
+            <span>Fecha</span><span>Fuente</span><span>Monto</span><span>Acciones</span>
+          </div>
+          @for (income of recentHistory(); track income.id) {
+            <div class="history-row">
+              <span class="date">{{ formatShortDate(income.date) }}</span>
+              <span class="src"><span class="dot" [style.background]="sourceColor(sourceIndex(income.source))"></span>{{ income.source }}</span>
+              <span class="amt">+ {{ formatAmount(income.amount) }}</span>
+              <span class="actions">
+                <button class="btn small" (click)="openEditForm(income)">Editar</button>
+                <button class="btn danger-ghost" (click)="deleteIncome(income)">Eliminar</button>
+              </span>
+            </div>
+          }
+        </div>
+      }
+    }
+  </main>
+</div>
+
+<!-- MODAL: ALTA / EDICIÓN DE INGRESO (embebido, sin componente aparte) -->
+@if (formOpen()) {
+  <div class="modal-backdrop" (click)="closeForm()">
+    <div class="modal-panel card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ isEditMode ? "Editar ingreso" : "Agregar ingreso" }}</h2>
+        <button type="button" class="close-btn" (click)="closeForm()">✕</button>
+      </div>
+
+      <form (ngSubmit)="submitForm()">
+        @if (formError()) {
+          <div class="form-error">{{ formError() }}</div>
+        }
+
+        <label class="form-group">
+          Fuente de ingreso
+          <input type="text" name="source" [(ngModel)]="formSource" placeholder="Ej. Sueldo principal" maxlength="100" required />
+        </label>
+
+        <label class="form-group">
+          Monto (Q)
+          <input type="number" name="amount" [(ngModel)]="formAmount" min="0.01" step="0.01" placeholder="0.00" required />
+        </label>
+
+        <label class="form-group">
+          Frecuencia
+          <select name="frequency" [(ngModel)]="formFrequency">
+            <option value="MENSUAL">Mensual</option>
+            <option value="VARIABLE">Variable</option>
+            <option value="UNICA">Única</option>
+          </select>
+        </label>
+
+        <label class="form-group">
+          Fecha
+          <input type="date" name="date" [(ngModel)]="formDate" required />
+        </label>
+
+        <div class="form-actions">
+          <button type="button" class="btn ghost" (click)="closeForm()" [disabled]="saving()">Cancelar</button>
+          <button type="submit" class="btn" [disabled]="saving()">
+            {{ saving() ? "Guardando…" : (isEditMode ? "Guardar cambios" : "Agregar ingreso") }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
+
+<!-- MOBILE FAB + BOTTOM NAV -->
+<button class="fab" (click)="openCreateForm()">+</button>
+<nav class="bottom-nav">
+  <a (click)="goTo('/dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</a>
+  <a class="active" (click)="goTo('/income')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Ingresos</a>
+  <a (click)="goTo('/expenses')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Gastos</a>
+  <a (click)="goTo('/budget')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19h16M7 19V9m5 10V5m5 14v-7"/></svg>Presupuesto</a>
+  <a (click)="goTo('/settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87"/></svg>Config</a>
+</nav>
